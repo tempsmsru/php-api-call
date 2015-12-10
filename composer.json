@@ -1,0 +1,19 @@
+{
+    "name": "tempsmsru/php-api-call",
+    "description": "An interface for calling tempsms API",
+    "type": "library",
+    "require": {
+        "php": ">=5.5",
+        "ext-curl": "*"
+    },
+    "autoload":{
+        "psr-4": {"tempsms\\": ""}
+    },
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "tempsmsru",
+            "email": "tempsms.service@gmail.com"
+        }
+    ]
+}
