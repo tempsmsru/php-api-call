@@ -31,6 +31,33 @@ class ApiCall
         $this->version = $version;
     }
 
+    public function get($method_name, $as_json = true, $params = [])
+    {
+        $query_string = $method_name;
+        if ($params)
+        {
+            $query_string .= "?" . http_build_query($params);
+        }
+        $result = $this->call("GET", $query_string);
+        if ($as_json)
+        {
+            return json_decode($result);
+        }
+        return $result;
+    }
+
+    public function getBool($method_name, $as_json = true, $params = [])
+    {
+        try
+        {
+            $this->get($method_name, $as_json, $params);
+            return true;
+        } catch (\Exception $e)
+        {
+            return false;
+        }
+    }
+
     public function post($method_name, $as_json = true, $params = [], $request_args = [])
     {
         $result = $this->call('POST', $method_name, $params, $request_args);
@@ -47,7 +74,7 @@ class ApiCall
         {
             $this->post($method_name, $as_json, $params, $request_args);
             return true;
-        } catch (Exception $e)
+        } catch (\Exception $e)
         {
             return false;
         }
@@ -65,12 +92,15 @@ class ApiCall
 
 
         $hash = hash('sha256', $to_hash . $secret);
-        if($this->debug)
-        {var_dump($hash); ob_flush();}
+        if ($this->debug)
+        {
+            var_dump($hash);
+            ob_flush();
+        }
         return $hash;
     }
 
-    public function call($query_method, $method_name, $params, $request_args = [], $retry_times = 3, $retry_timeout = 3)
+    public function call($query_method, $method_name, $params = [], $request_args = [], $retry_times = 3, $retry_timeout = 3)
     {
         $secure = true;
         if (isset($request_args['secure']))
@@ -119,10 +149,10 @@ class ApiCall
                 case 200:
                     return $response;
                 default:
-                    throw new Exception('Request ended with HTTP code: ' . $response_code);
+                    throw new \Exception('Request ended with HTTP code: ' . $response_code . "; Response: " . $response, $response_code);
             }
         }
-        throw new Exception('Request error!');
+        throw new \Exception('Request error!', 500);
     }
 
 }
