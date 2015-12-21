@@ -2,6 +2,7 @@
 
 namespace tempsmsru\api;
 
+use tempsmsru\api\auth\HashBuilder;
 
 class ApiCall
 {
@@ -15,28 +16,39 @@ class ApiCall
 
     protected $curlOpts = [];
 
-    public function __construct($host, $app_id = null, $secret = null, $request_args = null, $debug = false, $version = 'v2')
+    public function __construct($host, $app_id = null, $secret = null, $params = [])
     {
         $this->host = $host;
         $this->app_id = $app_id;
-        if ($secret)
-        {
-            $this->secret = hash('sha256', $secret);
-        } else
-        {
-            $this->secret = null;
-        }
-        $this->request_args = $request_args ? $request_args : [];
-        $this->debug = $debug;
-        $this->version = $version;
+        $this->secret = $secret;
+        
+        $this->request_args = $this->getAttr($params, 'request_args', []);
+        $this->debug = $this->getAttr($params, 'debug', false);
+        $this->version = $this->getAttr($params, 'version', 'v2');
     }
 
-    public function get($method_name, $as_json = true, $params = [])
+    protected function getAttr($source, $attr, $default = null)
     {
-        $query_string = $method_name;
-        if ($params)
+        if (is_array($source))
         {
-            $query_string .= "?" . http_build_query($params);
+            return isset($source[$attr]) ? $source[$attr] : $default;
+        } elseif (is_object($source))
+        {
+            if (in_array($attr, get_class_vars($source)))
+            {
+                return $source->$attr;
+            } else
+                return $default;
+        }
+    }
+
+    public function get($method_name, $query_params = null, $params = [])
+    {
+        $as_json = $this->getAttr($params, 'as_json', true);
+        $query_string = $method_name;
+        if (is_array($query_params))
+        {
+            $query_string .= "?" . http_build_query($query_params);
         }
         $result = $this->call("GET", $query_string);
         if ($as_json)
@@ -46,11 +58,11 @@ class ApiCall
         return $result;
     }
 
-    public function getBool($method_name, $as_json = true, $params = [])
+    public function getBool($method_name, $query_params, $params = [])
     {
         try
         {
-            $this->get($method_name, $as_json, $params);
+            $this->get($method_name, $query_params, $params);
             return true;
         } catch (\Exception $e)
         {
@@ -58,9 +70,10 @@ class ApiCall
         }
     }
 
-    public function post($method_name, $as_json = true, $params = [], $request_args = [])
+    public function post($method_name, $body = [], $params = [])
     {
-        $result = $this->call('POST', $method_name, $params, $request_args);
+        $as_json = $this->getAttr($params, 'as_json', true);
+        $result = $this->call('POST', $method_name, $body, $params);
         if ($as_json)
         {
             return json_decode($result);
@@ -68,11 +81,11 @@ class ApiCall
         return $result;
     }
 
-    public function postBool($method_name, $as_json = true, $params = [], $request_args = [])
+    public function postBool($method_name, $body = [], $params = [])
     {
         try
         {
-            $this->post($method_name, $as_json, $params, $request_args);
+            $this->post($method_name, $body, $params);
             return true;
         } catch (\Exception $e)
         {
@@ -80,39 +93,23 @@ class ApiCall
         }
     }
 
-    public function buildSign($query_params, $secret)
+    /**
+     * @param $query_method string Request method name (GET, POST, PUT, DELETE, etc...)
+     * @param $method_name string Api method name to be called
+     * @param $params array Additional args which will be passed as request body
+     * @return mixed
+     * @throws \Exception
+     */
+    public function call($query_method, $method_name, $body = [], $params = [])
     {
-        krsort($query_params);
-        $chunks = [];
-        foreach ($query_params as $k => $v)
-        {
-            $chunks[] = $k . '=' . $v;
-        }
-        $to_hash = implode('.!.', $chunks);
+        $secure = $this->getAttr($params, 'secure', true);
+        $retry_times = $this->getAttr($params, 'retry_times', 3);
 
-
-        $hash = hash('sha256', $to_hash . $secret);
-        if ($this->debug)
-        {
-            var_dump($hash);
-            ob_flush();
-        }
-        return $hash;
-    }
-
-    public function call($query_method, $method_name, $params = [], $request_args = [], $retry_times = 3, $retry_timeout = 3)
-    {
-        $secure = true;
-        if (isset($request_args['secure']))
-        {
-            $secure = $request_args['secure'];
-        }
-
-        $query_params = array_merge($this->request_args, $params);
+        $query_params = array_merge($this->request_args, $body);
         if ($secure)
         {
             $query_params['app_id'] = $this->app_id;
-            $query_params['hash'] = $this->buildSign($query_params, $this->secret);
+            $query_params['hash'] = HashBuilder::build($query_params, $this->secret);
         }
 
         $json_str = json_encode($query_params);

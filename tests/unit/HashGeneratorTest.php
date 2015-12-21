@@ -1,9 +1,8 @@
 <?php
 
-use tempsmsru\api\ApiCall;
+use tempsmsru\api\auth\HashBuilder;
 
-
-class ApiCallTest extends \Codeception\TestCase\Test
+class HashGeneratorTest extends \Codeception\TestCase\Test
 {
     /**
      * @var \UnitTester
@@ -26,15 +25,13 @@ class ApiCallTest extends \Codeception\TestCase\Test
     public function testIncorrectHash()
     {
         $expected_hash = 'incorrect_hash';
-        $api = new ApiCall($this->apiHost, $this->appId, $this->secret);
-        $this->assertNotEquals($expected_hash, $api->buildSign(['app_id' => $this->appId], $api->secret));
+        $this->assertNotEquals($expected_hash, HashBuilder::build(['app_id' => $this->appId], $this->secret));
     }
 
     public function testCorrectHash()
     {
         $expected_hash = '181de8b0f26ee8866c0f8660c7427c74042abcc928e31f60ec7ead3f07c88db9';
-        $api = new ApiCall($this->apiHost, $this->appId, $this->secret);
-        $this->assertEquals($expected_hash, $api->buildSign(['app_id' => $this->appId], $api->secret));
+        $this->assertEquals($expected_hash, HashBuilder::build(['app_id' => $this->appId], $this->secret));
     }
 
 }
