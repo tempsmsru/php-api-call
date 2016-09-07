@@ -3,6 +3,9 @@
 namespace tempsmsru\api;
 
 use tempsmsru\api\auth\HashBuilder;
+use tempsmsru\api\exception\ApiCallBaseException;
+use yii\base\InvalidParamException;
+use yii\helpers\Json;
 
 class ApiCall
 {
@@ -21,7 +24,7 @@ class ApiCall
         $this->host = $host;
         $this->app_id = $app_id;
         $this->secret = $secret;
-        
+
         $this->request_args = $this->getAttr($params, 'request_args', []);
         $this->debug = $this->getAttr($params, 'debug', false);
         $this->version = $this->getAttr($params, 'version', 'v2');
@@ -141,7 +144,17 @@ class ApiCall
             switch ($response_code)
             {
                 case 401:
-                    $this->curlOpts[CURLOPT_USERPWD] = implode(':', $this->httpAuth);
+                    try
+                    {
+                        $deserialized = Json::decode($response);
+                        if(array_key_exists('status', $deserialized))
+                        {
+                            throw ApiCallBaseException::create($deserialized);
+                        }
+                    } catch (InvalidParamException $e)
+                    {
+                        $this->curlOpts[CURLOPT_USERPWD] = implode(':', $this->httpAuth);
+                    }
                     break;
                 case 200:
                     return $response;
